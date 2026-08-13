@@ -1,0 +1,41 @@
+---
+title: "service_unavailable"
+description: "Useroutr is temporarily unable to serve this request."
+---
+
+<CardGroup cols={2}>
+  <Card title="Retryable" icon="rotate">
+    Yes
+  </Card>
+  <Card title="Typical status" icon="hashtag">
+    503
+  </Card>
+</CardGroup>
+
+## What it means
+
+A planned or unplanned interruption on our side. No funds are affected and no state was changed.
+
+## Common causes
+
+- Maintenance.
+- An internal dependency is degraded.
+
+## How to resolve
+
+Retry after `retry_after_seconds` with the same idempotency key.
+
+## Example response
+
+```json
+{
+  "error": {
+    "code": "service_unavailable",
+    "message": "...",
+    "type": "...",
+    "retryable": true,
+    "docs_url": "https://docs.useroutr.com/errors/service_unavailable",
+    "request_id": "req_..."
+  }
+}
+```

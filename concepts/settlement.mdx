@@ -1,0 +1,57 @@
+---
+title: "Settlement"
+description: "How fast funding lands, and why the speed depends on size."
+---
+
+Settlement runs in two tiers, chosen automatically and surfaced in the quote so the estimate you show a user is honest.
+
+<Tabs>
+  <Tab title="Fast fill">
+    **Used for** amounts at or below the tier threshold, when float is available.
+
+    We deliver from our own prefunded capital immediately and reimburse ourselves from the underlying settlement afterwards. The user does not wait for a bridge.
+
+    Typical time to credit: seconds.
+  </Tab>
+  <Tab title="Standard">
+    **Used for** larger amounts, or when fast fill capacity is unavailable.
+
+    The underlying rail settles first, then we deliver. Slower, and no capital is at risk.
+
+    Typical time to credit: rail finality, commonly 2 to 15 minutes.
+  </Tab>
+</Tabs>
+
+The tier is never something you select. It is reflected in `estimated_duration_seconds` on each quote, so if you are optimising for speed you can see the real number rather than a marketing one.
+
+<Note>
+  If fast fill capacity is exhausted the route degrades to standard automatically. Your user sees a longer estimate, not a failure.
+</Note>
+
+## Optimising
+
+`policy.optimize` accepts `cost`, `speed`, or `reliability`. Each objective is bounded by constraints on the others, so choosing `cost` will not return a route that saves four cents and takes four hours.
+
+```ts
+const intent = await useroutr.fundingIntents.create({
+  amount: { amount: "100.00", asset: "fiat:USD" },
+  destination: { /* ... */ },
+  policy: { optimize: "speed", max_slippage_bps: 50 },
+});
+```
+
+## Seeing why a route was not offered
+
+`GET /funding_intents/{id}/options` returns the rails we excluded and why, alongside the ones we are offering:
+
+```json
+{
+  "options": [ /* ... */ ],
+  "excluded": [
+    { "rail": "ethereum", "reason": "network_fee_exceeds_amount",
+      "detail": { "estimated_fee": "12.40", "amount": "10.00" } }
+  ]
+}
+```
+
+This exists so that "why didn't it use the cheap rail" is answerable without contacting support.

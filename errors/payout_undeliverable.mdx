@@ -1,0 +1,42 @@
+---
+title: "payout_undeliverable"
+description: "The destination rejected the settlement."
+---
+
+<CardGroup cols={2}>
+  <Card title="Retryable" icon="rotate">
+    No
+  </Card>
+  <Card title="Typical status" icon="hashtag">
+    409
+  </Card>
+</CardGroup>
+
+## What it means
+
+The route succeeded and the destination refused. Nothing failed on our side, so a retry to the same destination fails the same way. The intent is in `undeliverable` and no refund has been attempted yet.
+
+## Common causes
+
+- A bank account was closed or the details were wrong.
+- A crypto destination rejected the transfer.
+- The account is frozen.
+
+## How to resolve
+
+Supply a corrected destination and retry, or request a refund with `POST /funding_intents/{id}/refunds`.
+
+## Example response
+
+```json
+{
+  "error": {
+    "code": "payout_undeliverable",
+    "message": "...",
+    "type": "...",
+    "retryable": false,
+    "docs_url": "https://docs.useroutr.com/errors/payout_undeliverable",
+    "request_id": "req_..."
+  }
+}
+```

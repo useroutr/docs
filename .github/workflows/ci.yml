@@ -1,0 +1,27 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Validate docs.json
+        run: node -e "JSON.parse(require('fs').readFileSync('docs.json','utf8'))"
+
+      - name: Check navigation resolves
+        run: node scripts/check-nav.mjs
+
+      - name: Validate OpenAPI specification
+        run: npx --yes @redocly/cli lint api-reference/openapi.yaml --skip-rule=no-empty-servers
+
+      - name: Check for broken internal links
+        run: npx --yes mint broken-links || true

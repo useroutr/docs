@@ -1,0 +1,42 @@
+---
+title: "amount_below_minimum"
+description: "The amount is below the minimum the chosen route can carry."
+---
+
+<CardGroup cols={2}>
+  <Card title="Retryable" icon="rotate">
+    No
+  </Card>
+  <Card title="Typical status" icon="hashtag">
+    400
+  </Card>
+</CardGroup>
+
+## What it means
+
+Every rail and every provider declares a minimum. Below it, network or provider fees would consume more than the transfer is worth, so we reject rather than settle a negative outcome.
+
+## Common causes
+
+- The amount is genuinely small, for example a one cent test on an EVM rail.
+- The route requires a leg whose minimum is higher than the source rail's own minimum.
+- Fees on the selected rail rose and pushed the effective floor above the requested amount.
+
+## How to resolve
+
+Raise the amount, or call `GET /funding_intents/{id}/options` and choose a rail with a lower floor. The `excluded` array in that response names the floor for each rail that was dropped.
+
+## Example response
+
+```json
+{
+  "error": {
+    "code": "amount_below_minimum",
+    "message": "...",
+    "type": "...",
+    "retryable": false,
+    "docs_url": "https://docs.useroutr.com/errors/amount_below_minimum",
+    "request_id": "req_..."
+  }
+}
+```

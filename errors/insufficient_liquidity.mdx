@@ -1,0 +1,42 @@
+---
+title: "insufficient_liquidity"
+description: "No provider can currently fill the requested route."
+---
+
+<CardGroup cols={2}>
+  <Card title="Retryable" icon="rotate">
+    Yes
+  </Card>
+  <Card title="Typical status" icon="hashtag">
+    503
+  </Card>
+</CardGroup>
+
+## What it means
+
+We quote against live provider capacity. When no provider can serve the amount on the requested corridor, we say so rather than accepting funds we cannot settle.
+
+## Common causes
+
+- The amount is large relative to available depth on this corridor.
+- A provider that normally serves this route is health demoted or excluded.
+- A transient outage upstream.
+
+## How to resolve
+
+Retry after the interval in `retry_after_seconds`, try a different source rail, or reduce the amount. This is a genuinely transient condition and is usually resolved within minutes.
+
+## Example response
+
+```json
+{
+  "error": {
+    "code": "insufficient_liquidity",
+    "message": "...",
+    "type": "...",
+    "retryable": true,
+    "docs_url": "https://docs.useroutr.com/errors/insufficient_liquidity",
+    "request_id": "req_..."
+  }
+}
+```

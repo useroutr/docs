@@ -1,0 +1,50 @@
+---
+title: "Error reference"
+description: "Every error code, what causes it, and how to resolve it."
+---
+
+Every error carries a stable `code` and a `docs_url` pointing at its page here. Branch on the code, never on the message.
+
+See [Handling errors](/guides/handling-errors) for the response shape and retry patterns.
+
+## Amount
+
+| Code | Retryable | Summary |
+| --- | --- | --- |
+| [`amount_below_minimum`](/errors/amount_below_minimum) | No | Below the route's floor |
+| [`amount_above_maximum`](/errors/amount_above_maximum) | No | Above a provider or compliance ceiling |
+| [`underpaid`](/errors/underpaid) | No | Less arrived than required. Your policy decides what happens |
+| [`overpaid`](/errors/overpaid) | No | More arrived. Excess refunded automatically |
+
+## Routing and liquidity
+
+| Code | Retryable | Summary |
+| --- | --- | --- |
+| [`insufficient_liquidity`](/errors/insufficient_liquidity) | Yes | No provider can fill this route right now |
+| [`rail_unavailable`](/errors/rail_unavailable) | Yes | Rail not accepting traffic in this direction |
+| [`quote_expired`](/errors/quote_expired) | No | Re quote and accept again |
+| [`slippage_exceeded`](/errors/slippage_exceeded) | Yes | Would have delivered below the guaranteed floor |
+| [`provider_error`](/errors/provider_error) | Yes | Upstream provider failed |
+
+## Destination
+
+| Code | Retryable | Summary |
+| --- | --- | --- |
+| [`invalid_destination`](/errors/invalid_destination) | No | Failed validation before any money moved |
+| [`destination_not_ready`](/errors/destination_not_ready) | Yes | Valid, but cannot receive yet |
+| [`payout_undeliverable`](/errors/payout_undeliverable) | No | Destination rejected the settlement |
+| [`refund_undeliverable`](/errors/refund_undeliverable) | No | Refund failed. Always needs a human |
+
+## Compliance
+
+| Code | Retryable | Summary |
+| --- | --- | --- |
+| [`compliance_hold`](/errors/compliance_hold) | No | Held for review. Not a failure |
+| [`compliance_rejected`](/errors/compliance_rejected) | No | Cannot proceed. Funds refunded |
+
+## Service
+
+| Code | Retryable | Summary |
+| --- | --- | --- |
+| [`network_error`](/errors/network_error) | Yes | Transport failure. No state changed |
+| [`service_unavailable`](/errors/service_unavailable) | Yes | Temporary interruption on our side |

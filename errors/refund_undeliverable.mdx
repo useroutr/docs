@@ -1,0 +1,46 @@
+---
+title: "refund_undeliverable"
+description: "A refund was attempted and could not be delivered."
+---
+
+<CardGroup cols={2}>
+  <Card title="Retryable" icon="rotate">
+    No
+  </Card>
+  <Card title="Typical status" icon="hashtag">
+    409
+  </Card>
+</CardGroup>
+
+## What it means
+
+This is the one state that always needs a human. The intent is in `refund_failed` and the funds are held, not lost.
+
+## Common causes
+
+- The payer is an exchange deposit address that cannot receive a refund.
+- No refund endpoint was collected and the source is not reliably refundable.
+- The refund destination has since become invalid.
+
+## How to resolve
+
+Collect a valid refund endpoint from the payer and retry the refund. Our checkout collects one before payment on rails where the payer is not reliably refundable, which prevents most occurrences.
+
+<Note>
+  Funds in `refund_failed` are held on the ledger against a named liability. They are never written off.
+</Note>
+
+## Example response
+
+```json
+{
+  "error": {
+    "code": "refund_undeliverable",
+    "message": "...",
+    "type": "...",
+    "retryable": false,
+    "docs_url": "https://docs.useroutr.com/errors/refund_undeliverable",
+    "request_id": "req_..."
+  }
+}
+```

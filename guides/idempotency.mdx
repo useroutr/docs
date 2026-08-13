@@ -1,0 +1,46 @@
+---
+title: "Idempotency"
+description: "Required on every mutating request, so retries are always safe."
+---
+
+**Every mutating request requires an `Idempotency-Key` header.** A request without one is rejected with `400 missing_idempotency_key`. This is not optional and there is no way to opt out.
+
+```bash
+curl -X POST https://api.useroutr.com/v1/funding_intents \
+  -H "Authorization: Bearer sk_live_..." \
+  -H "Idempotency-Key: 8f14e45f-ea01-4b3c-9d2a-7c1f0b6e2a91" \
+  -H "Content-Type: application/json" \
+  -d '{ "amount": { "amount": "100.00", "asset": "fiat:USD" }, "destination": { } }'
+```
+
+## Behaviour
+
+| Situation | Result |
+| --- | --- |
+| First request with a key | Processed normally |
+| Replay, identical body | Original response returned, with `Idempotency-Replayed: true` |
+| Replay, **different** body | `409 idempotency_key_reuse` |
+| Two concurrent requests, same key | First wins, others get `409 idempotency_in_flight` |
+
+Keys are scoped to your application and the endpoint, and retained for 24 hours.
+
+<Note>
+  A different body under the same key returns an error rather than silently replaying the first response. Silently replaying would hide a real bug in your integration.
+</Note>
+
+## Choosing a key
+
+Use something derived from the operation, not from the attempt. A UUID generated once per logical action and reused across retries is correct. A UUID generated fresh inside a retry loop defeats the mechanism entirely.
+
+## `reference` is not an idempotency key
+
+`reference` is your own order id, unique per application, used for correlation and lookup:
+
+```ts
+await useroutr.fundingIntents.create({
+  reference: "order_8812",     // your id, for finding this later
+  // ...
+}, { idempotencyKey: "..." });  // safety for this specific call
+```
+
+They serve different purposes and you need both.

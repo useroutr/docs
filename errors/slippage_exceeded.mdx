@@ -1,0 +1,41 @@
+---
+title: "slippage_exceeded"
+description: "Execution would have delivered less than the guaranteed minimum."
+---
+
+<CardGroup cols={2}>
+  <Card title="Retryable" icon="rotate">
+    Yes
+  </Card>
+  <Card title="Typical status" icon="hashtag">
+    409
+  </Card>
+</CardGroup>
+
+## What it means
+
+Every leg carries a floor. If the market moves past it during execution we stop rather than deliver less than promised.
+
+## Common causes
+
+- A volatile pair moved between quote and execution.
+- A conversion leg had thinner depth than quoted.
+
+## How to resolve
+
+Re quote and accept again, or raise `policy.max_slippage_bps` if a wider band is acceptable. Funds are never partially delivered because of slippage.
+
+## Example response
+
+```json
+{
+  "error": {
+    "code": "slippage_exceeded",
+    "message": "...",
+    "type": "...",
+    "retryable": true,
+    "docs_url": "https://docs.useroutr.com/errors/slippage_exceeded",
+    "request_id": "req_..."
+  }
+}
+```

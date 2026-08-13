@@ -1,0 +1,388 @@
+openapi: 3.1.0
+
+info:
+  title: Useroutr API
+  version: "1.0.0"
+  description: |
+    Universal application funding. Users fund an application with whatever they
+    hold, on whatever rail, and the application receives exactly what it needs,
+    credited exactly once.
+
+    This document is the single source of truth for every wire type. Server
+    handlers, the SDK, the checkout, and the dashboard all consume types
+    generated from it. A handler change without a regenerated type fails CI.
+
+servers:
+  - url: https://api.useroutr.com/v1
+    description: Production
+  - url: https://api.sandbox.useroutr.com/v1
+    description: Sandbox
+
+security:
+  - secretKey: []
+
+tags:
+  - name: Funding intents
+  - name: Funding addresses
+  - name: Customers
+  - name: Registry
+  - name: Webhooks
+
+paths:
+  /funding_intents:
+    post:
+      tags: [Funding intents]
+      summary: Create a funding intent
+      operationId: createFundingIntent
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateFundingIntent" }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/FundingIntent" }
+        "400": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+
+  /funding_intents/{id}:
+    get:
+      tags: [Funding intents]
+      summary: Retrieve a funding intent
+      operationId: getFundingIntent
+      parameters:
+        - $ref: "#/components/parameters/FundingIntentId"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/FundingIntent" }
+        "404": { $ref: "#/components/responses/Error" }
+
+  /funding_intents/{id}/options:
+    get:
+      tags: [Funding intents]
+      summary: List every way this user could fund the intent
+      description: |
+        Returns quotes across every eligible source rail, and the reasons the
+        routes that were not offered were excluded.
+      operationId: listFundingOptions
+      parameters:
+        - $ref: "#/components/parameters/FundingIntentId"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/FundingOptions" }
+
+  /funding_intents/{id}/accept:
+    post:
+      tags: [Funding intents]
+      summary: Accept a quote and pin the route
+      operationId: acceptQuote
+      parameters:
+        - $ref: "#/components/parameters/FundingIntentId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [quote_id]
+              properties:
+                quote_id: { type: string, examples: ["qt_..."] }
+      responses:
+        "200":
+          description: Route pinned, pay instructions issued
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/FundingIntent" }
+        "409": { $ref: "#/components/responses/Error" }
+
+  /rails:
+    get:
+      tags: [Registry]
+      summary: List supported rails and assets
+      operationId: listRails
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [rails]
+                properties:
+                  rails:
+                    type: array
+                    items: { $ref: "#/components/schemas/Rail" }
+
+components:
+  securitySchemes:
+    secretKey:
+      type: http
+      scheme: bearer
+      description: Server-side only. Never ships to a browser.
+
+  parameters:
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      description: Required on every mutating request. Absent is a 400.
+      schema: { type: string, minLength: 8, maxLength: 200 }
+    FundingIntentId:
+      name: id
+      in: path
+      required: true
+      schema: { type: string }
+
+  responses:
+    Error:
+      description: Error
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorResponse" }
+
+  schemas:
+    Decimal:
+      type: string
+      description: Decimal string. Never a float, never a bare integer.
+      pattern: '^-?\d+(\.\d+)?$'
+      examples: ["100.00"]
+
+    Money:
+      type: object
+      required: [amount, asset]
+      properties:
+        amount: { $ref: "#/components/schemas/Decimal" }
+        asset:
+          type: string
+          description: Namespaced. crypto:USDC, fiat:NGN, credit:acme:ai_tokens.
+          examples: ["crypto:USDC"]
+
+    EndpointTarget:
+      oneOf:
+        - type: object
+          required: [kind, address]
+          properties:
+            kind: { const: chain_address }
+            address: { type: string }
+            memo:
+              type: string
+              description: Validated against the rail. The only Stellar concession in the public model.
+        - type: object
+          required: [kind, external_account_id]
+          properties:
+            kind: { const: bank_account }
+            external_account_id: { type: string }
+        - type: object
+          required: [kind, payment_method_id]
+          properties:
+            kind: { const: card }
+            payment_method_id: { type: string }
+        - type: object
+          required: [kind, account_id]
+          properties:
+            kind: { const: ledger_account }
+            account_id: { type: string }
+
+    Endpoint:
+      type: object
+      description: |
+        One shape for a bank account, a blockchain address, a card, and an
+        internal balance. Used for both sources and destinations: direction is a
+        property of the transfer, never of the type.
+      required: [rail, asset, target]
+      properties:
+        rail:
+          type: string
+          description: Open string, resolved through the registry.
+          examples: ["stellar"]
+        asset: { type: string, examples: ["crypto:USDC"] }
+        target: { $ref: "#/components/schemas/EndpointTarget" }
+
+    RoutePolicy:
+      type: object
+      properties:
+        optimize:
+          type: string
+          enum: [cost, speed, reliability]
+          default: cost
+        max_slippage_bps: { type: integer, minimum: 0 }
+        allow_destination_call: { type: boolean, default: true }
+
+    CreateFundingIntent:
+      type: object
+      required: [destination]
+      properties:
+        amount:
+          allOf: [{ $ref: "#/components/schemas/Money" }]
+          description: Omit for open-amount funding.
+        presentment_currency: { type: string, examples: ["fiat:USD"] }
+        destination: { $ref: "#/components/schemas/Endpoint" }
+        customer_id: { type: string }
+        reference:
+          type: string
+          description: Your own order id. Unique per application. Not a substitute for the idempotency header.
+        metadata: { type: object, additionalProperties: true }
+        policy: { $ref: "#/components/schemas/RoutePolicy" }
+
+    FundingIntentStatus:
+      type: string
+      description: |
+        Route shape never appears here. Values may be added in a minor version,
+        so every client switch must carry a default.
+      enum:
+        - created
+        - quoted
+        - awaiting_payment
+        - payment_received
+        - in_review
+        - settling
+        - settled
+        - partially_settled
+        - undeliverable
+        - failed
+        - refund_pending
+        - refunded
+        - refund_failed
+        - expired
+        - canceled
+
+    FundingIntent:
+      type: object
+      required: [id, status, destination, created_at, expires_at]
+      properties:
+        id: { type: string, examples: ["fi_..."] }
+        status: { $ref: "#/components/schemas/FundingIntentStatus" }
+        amount: { $ref: "#/components/schemas/Money" }
+        destination: { $ref: "#/components/schemas/Endpoint" }
+        reference: { type: string }
+        metadata: { type: object, additionalProperties: true }
+        checkout_url: { type: string, format: uri }
+        failure: { $ref: "#/components/schemas/FundingFailure" }
+        created_at: { type: string, format: date-time }
+        expires_at: { type: string, format: date-time }
+
+    FundingOption:
+      type: object
+      required: [quote_id, source, pay_amount, receive_amount_min, estimated_duration_seconds]
+      properties:
+        quote_id: { type: string }
+        source: { $ref: "#/components/schemas/Endpoint" }
+        pay_amount: { $ref: "#/components/schemas/Money" }
+        receive_amount: { $ref: "#/components/schemas/Money" }
+        receive_amount_min: { $ref: "#/components/schemas/Money" }
+        estimated_duration_seconds: { type: integer }
+        expires_at: { type: string, format: date-time }
+
+    FundingOptions:
+      type: object
+      required: [options, excluded]
+      properties:
+        options:
+          type: array
+          items: { $ref: "#/components/schemas/FundingOption" }
+        excluded:
+          type: array
+          description: Why the routes we did not offer were excluded.
+          items:
+            type: object
+            required: [rail, reason]
+            properties:
+              rail: { type: string }
+              reason: { type: string }
+              detail: { type: object, additionalProperties: true }
+
+    Rail:
+      type: object
+      required: [id, kind, name, directions, requires_memo, finality, assets]
+      properties:
+        id: { type: string }
+        kind: { type: string, enum: [chain, bank, card, ledger] }
+        name: { type: string }
+        directions:
+          type: array
+          description: Some rails can be paid from but not settled to.
+          items: { type: string, enum: [in, out] }
+        requires_memo: { type: boolean }
+        cctp_domain: { type: [integer, "null"] }
+        finality:
+          type: object
+          required: [typical_seconds, p95_seconds]
+          properties:
+            typical_seconds: { type: integer }
+            p95_seconds: { type: integer }
+        assets:
+          type: array
+          items: { type: string }
+
+    FundingFailure:
+      type: object
+      required: [code, message, retryable]
+      properties:
+        code:
+          type: string
+          description: |
+            Chain-specific failures are lifted into chain-neutral codes:
+            destination_not_ready covers a missing Stellar trustline, an
+            unactivated account, and a failed bank verification alike.
+          enum:
+            - amount_below_minimum
+            - amount_above_maximum
+            - insufficient_liquidity
+            - rail_unavailable
+            - provider_error
+            - invalid_destination
+            - destination_not_ready
+            - quote_expired
+            - slippage_exceeded
+            - compliance_hold
+            - compliance_rejected
+            - payout_undeliverable
+            - refund_undeliverable
+            - underpaid
+            - overpaid
+            - network_error
+            - service_unavailable
+        message:
+          type: string
+          description: Safe to display. Never contains a provider name or an internal identifier.
+        retryable: { type: boolean }
+
+    ErrorResponse:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message, type, request_id]
+          properties:
+            code: { type: string }
+            message: { type: string }
+            type:
+              type: string
+              enum:
+                - validation_error
+                - authentication_error
+                - permission_error
+                - not_found
+                - conflict
+                - rate_limit
+                - provider_error
+                - compliance_error
+                - internal_error
+            param: { type: [string, "null"] }
+            retryable: { type: boolean }
+            retry_after_seconds: { type: integer }
+            docs_url: { type: string, format: uri }
+            request_id: { type: string }

@@ -1,0 +1,45 @@
+---
+title: "underpaid"
+description: "Less arrived than the intent required."
+---
+
+<CardGroup cols={2}>
+  <Card title="Retryable" icon="rotate">
+    No
+  </Card>
+  <Card title="Typical status" icon="hashtag">
+    200
+  </Card>
+</CardGroup>
+
+## What it means
+
+Not necessarily a failure. What happens next is your application's configured underpayment policy.
+
+## Common causes
+
+- The payer sent less than the quoted amount.
+- A network fee was deducted from the sent amount by the sending wallet or exchange.
+
+## How to resolve
+
+Depends on your policy: `credit_partial` moves the intent to `partially_settled` and credits what arrived, `hold` waits for a top up until expiry, and `refund` returns what arrived.
+
+<Note>
+  Exchange withdrawals frequently deduct their fee from the amount sent, which is the most common cause.
+</Note>
+
+## Example response
+
+```json
+{
+  "error": {
+    "code": "underpaid",
+    "message": "...",
+    "type": "...",
+    "retryable": false,
+    "docs_url": "https://docs.useroutr.com/errors/underpaid",
+    "request_id": "req_..."
+  }
+}
+```

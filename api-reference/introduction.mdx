@@ -1,0 +1,46 @@
+---
+title: "API reference"
+description: "Roughly fifteen endpoints, generated from the OpenAPI specification."
+---
+
+Base URL: `https://api.useroutr.com/v1`
+
+Every page in this section is generated from `openapi.yaml`, which is the single source of truth for wire types across our server, SDK, checkout, and dashboard. It cannot drift from the implementation.
+
+## Conventions
+
+<CardGroup cols={2}>
+  <Card title="Authentication" icon="key" href="/guides/authentication">
+    `Authorization: Bearer sk_live_...`, server side only.
+  </Card>
+  <Card title="Idempotency" icon="rotate" href="/guides/idempotency">
+    `Idempotency-Key` required on every mutating request.
+  </Card>
+  <Card title="Errors" icon="triangle-exclamation" href="/errors">
+    One shape, a stable code, a page per code.
+  </Card>
+  <Card title="Webhooks" icon="webhook" href="/guides/webhooks">
+    Every state change, including failures.
+  </Card>
+</CardGroup>
+
+**Casing.** `snake_case` on the wire. Our TypeScript SDK exposes `camelCase` and handles the mapping.
+
+**Amounts.** Decimal strings, always paired with an asset. Never floats.
+
+**Pagination.** Cursor based: `limit` and `starting_after`, with `has_more` and `next_cursor` in the response.
+
+**Versioning.** In the path. Additive changes ship without a version bump, so **clients must ignore unknown fields**, and enum values may be added at any time, so every `switch` needs a `default`.
+
+## Identifiers
+
+Public identifiers are prefixed and opaque. Never parse them.
+
+| Prefix | Resource |
+| --- | --- |
+| `fi_` | Funding intent |
+| `fa_` | Funding address |
+| `qt_` | Quote |
+| `cus_` | Customer |
+| `la_` | Ledger account |
+| `evt_` | Event |

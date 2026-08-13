@@ -1,0 +1,62 @@
+---
+title: "Introduction"
+description: "Universal application funding. Users bring whatever they have, your application receives exactly what it needs, credited exactly once."
+---
+
+Useroutr lets your users fund your application from any supported rail, crypto or fiat, and settles that value wherever you need it, including into a balance you control.
+
+<Info>
+  Useroutr is pre-launch. These docs describe the shipping surface and are updated as it lands. Sections marked as not yet available are named as such rather than quietly omitted.
+</Info>
+
+## The shape of an integration
+
+<Steps>
+  <Step title="Declare what you want">
+    Create a funding intent with an amount and a destination. The destination can be a blockchain address, a bank account, or an internal balance.
+  </Step>
+  <Step title="Let the user pick how to pay">
+    Open the checkout, or fetch the options yourself and build your own. Your user chooses a rail; you never name one.
+  </Step>
+  <Step title="We route and settle">
+    We quote across every eligible provider, pin a route, and deliver.
+  </Step>
+  <Step title="Your application is credited">
+    A webhook fires and the ledger records the credit. Exactly once.
+  </Step>
+</Steps>
+
+```ts
+const intent = await useroutr.fundingIntents.create({
+  amount: { amount: "100.00", asset: "fiat:USD" },
+  destination: {
+    rail: "stellar",
+    asset: "crypto:USDC",
+    target: { kind: "chain_address", address: "G..." },
+  },
+  reference: "order_8812",
+});
+```
+
+## Where to go next
+
+<CardGroup cols={2}>
+  <Card title="Quickstart" icon="rocket" href="/quickstart">
+    From zero to a settled test funding.
+  </Card>
+  <Card title="Core model" icon="cube" href="/concepts/core-model">
+    Rails, endpoints, and funding intents. Read this before building.
+  </Card>
+  <Card title="API reference" icon="code" href="/api-reference/introduction">
+    Every endpoint, generated from the spec.
+  </Card>
+  <Card title="Errors" icon="triangle-exclamation" href="/errors">
+    Every error code, what causes it, and how to resolve it.
+  </Card>
+</CardGroup>
+
+## What makes this different from a payments API
+
+A payment is finished when money reaches an address. Funding is finished when your application's state changes: a balance rises, credits are granted, a deposit becomes tradeable.
+
+That last step is the part most integrations end up building themselves, and it is the part that goes wrong. Useroutr treats it as the product. A funding intent is only settled when its ledger credit exists, so "did this user pay" and "should I credit this user" are the same question with the same answer.

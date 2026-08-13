@@ -1,0 +1,41 @@
+---
+title: "network_error"
+description: "A network failure prevented completion."
+---
+
+<CardGroup cols={2}>
+  <Card title="Retryable" icon="rotate">
+    Yes
+  </Card>
+  <Card title="Typical status" icon="hashtag">
+    502
+  </Card>
+</CardGroup>
+
+## What it means
+
+A transport level failure talking to a chain node, a provider, or a bank. No state was changed.
+
+## Common causes
+
+- An RPC node timed out.
+- A provider endpoint was unreachable.
+
+## How to resolve
+
+Retry with the same idempotency key. Because the key is required on every mutating request, retrying is always safe and cannot double charge.
+
+## Example response
+
+```json
+{
+  "error": {
+    "code": "network_error",
+    "message": "...",
+    "type": "...",
+    "retryable": true,
+    "docs_url": "https://docs.useroutr.com/errors/network_error",
+    "request_id": "req_..."
+  }
+}
+```

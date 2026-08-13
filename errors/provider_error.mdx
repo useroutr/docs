@@ -1,0 +1,45 @@
+---
+title: "provider_error"
+description: "An upstream provider failed in a way we could not recover automatically."
+---
+
+<CardGroup cols={2}>
+  <Card title="Retryable" icon="rotate">
+    Yes
+  </Card>
+  <Card title="Typical status" icon="hashtag">
+    502
+  </Card>
+</CardGroup>
+
+## What it means
+
+We normalise every provider failure into this code rather than surfacing provider specific errors, because provider identity is never part of your integration.
+
+## Common causes
+
+- A provider returned an unexpected response or timed out.
+- A provider rejected a leg after accepting the quote.
+
+## How to resolve
+
+Retry. The router records the failure against that provider's health for the affected corridor and will prefer a different provider on the next attempt. If funds were already received, the intent moves to refund automatically.
+
+<Note>
+  The provider is never named in the error body. If you need to know which provider was involved for a support conversation, quote the `request_id`.
+</Note>
+
+## Example response
+
+```json
+{
+  "error": {
+    "code": "provider_error",
+    "message": "...",
+    "type": "...",
+    "retryable": true,
+    "docs_url": "https://docs.useroutr.com/errors/provider_error",
+    "request_id": "req_..."
+  }
+}
+```

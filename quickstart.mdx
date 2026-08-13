@@ -1,0 +1,57 @@
+---
+title: "Quickstart"
+description: "From zero to a settled test funding."
+---
+
+<Warning>
+  **Not yet available.** The API is pre-launch. This page ships when the sandbox does, and is tested end to end in CI against a ten minute budget from the day it appears. Until then, [Core model](/concepts/core-model) is the best place to understand the shape of an integration.
+</Warning>
+
+## What this will cover
+
+<Steps>
+  <Step title="Get a key">
+    Self-serve, no approval step. A public sandbox key will let you run the whole flow before creating an account at all.
+  </Step>
+  <Step title="Create a funding intent">
+    Server side, with an amount and a destination.
+  </Step>
+  <Step title="Open the checkout">
+    Embedded React component, or the hosted page.
+  </Step>
+  <Step title="Pay on a testnet rail">
+    Including the failure paths: undeliverable, refund failed, compliance hold. The sandbox reproduces all of them on demand, because those are the paths integrations get wrong.
+  </Step>
+  <Step title="Receive the webhook and see the ledger credit">
+    `funding_intent.settled`, with the credit recorded.
+  </Step>
+</Steps>
+
+## The shape, today
+
+```ts
+import { Useroutr } from "@useroutr/core";
+
+const useroutr = new Useroutr({ apiKey: process.env.USEROUTR_SECRET_KEY });
+
+const intent = await useroutr.fundingIntents.create({
+  amount: { amount: "100.00", asset: "fiat:USD" },
+  destination: {
+    rail: "stellar",
+    asset: "crypto:USDC",
+    target: { kind: "chain_address", address: "G..." },
+  },
+  reference: "order_8812",
+});
+```
+
+```tsx
+import { UseroutrCheckout } from "@useroutr/react";
+
+<UseroutrCheckout
+  intentId={intent.id}
+  sessionUrl="/api/useroutr/session"
+  onSettled={(e) => console.log(e.settlement)}
+  onFailed={(e) => console.log(e.failure.code)}
+/>
+```

@@ -1,0 +1,80 @@
+---
+title: "Webhooks"
+description: "Every state change, including every failure, pushed to you."
+---
+
+Webhooks are the intended way to track funding. Polling works, but every state transition emits an event and **failures are pushed, not polled**.
+
+## Payload
+
+```json
+{
+  "id": "evt_...",
+  "type": "funding_intent.settled",
+  "created_at": "2026-08-13T10:30:00Z",
+  "api_version": "v1",
+  "data": { "object": { } },
+  "previous_attributes": { "status": "settling" }
+}
+```
+
+## Events
+
+<AccordionGroup>
+  <Accordion title="Funding intent">
+    `funding_intent.created`, `.quoted`, `.awaiting_payment`, `.payment_received`,
+    `.in_review`, `.settling`, `.settled`, `.partially_settled`, `.undeliverable`,
+    `.failed`, `.expired`, `.canceled`, `.refund_pending`, `.refunded`, `.refund_failed`
+  </Accordion>
+  <Accordion title="Funding address">
+    `funding_address.created`, `funding_address.funded`
+  </Accordion>
+  <Accordion title="Customer">
+    `customer.requirements_updated`, `customer.balance_updated`
+  </Accordion>
+</AccordionGroup>
+
+The three you must handle are `funding_intent.settled`, `funding_intent.failed`, and `funding_intent.refund_failed`. The last one is the only event that always requires a human.
+
+## Verifying
+
+```ts
+import { verifyWebhook } from "@useroutr/node";
+
+app.post("/webhooks/useroutr", express.raw({ type: "application/json" }), (req, res) => {
+  const event = verifyWebhook({
+    rawBody: req.body.toString(),
+    signature: req.headers["useroutr-signature"],
+    timestamp: req.headers["useroutr-timestamp"],
+    secret: process.env.USEROUTR_WEBHOOK_SECRET,
+  });
+
+  if (event.type === "funding_intent.settled") {
+    // credit the user
+  }
+
+  res.sendStatus(200);
+});
+```
+
+The signature is HMAC-SHA256 over `timestamp + "." + raw_body`.
+
+<Warning>
+  Verify with a constant-time comparison, and reject timestamps older than five minutes. `verifyWebhook` does both and throws rather than returning false, so an unchecked call cannot silently pass.
+</Warning>
+
+## Delivery
+
+At-least-once, so **your handler must be idempotent**. Use the event `id` as your dedup key.
+
+Retries on failure: immediate, 1m, 5m, 15m, 1h, 6h, 24h, then marked permanently failed and surfaced in the dashboard. Respond `2xx` within 5 seconds.
+
+## Live status in a browser
+
+For a checkout UI, subscribe rather than poll:
+
+```
+GET /v1/events?funding_intent_id=fi_...
+```
+
+Server-sent events, authenticated with a checkout session token.

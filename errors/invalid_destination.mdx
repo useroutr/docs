@@ -1,0 +1,42 @@
+---
+title: "invalid_destination"
+description: "The destination failed validation before any money moved."
+---
+
+<CardGroup cols={2}>
+  <Card title="Retryable" icon="rotate">
+    No
+  </Card>
+  <Card title="Typical status" icon="hashtag">
+    400
+  </Card>
+</CardGroup>
+
+## What it means
+
+We validate address format, memo requirements, and rail compatibility at creation time, so an unspendable destination is caught before a user is asked to pay.
+
+## Common causes
+
+- The address is malformed for the given rail.
+- The rail requires a memo and none was supplied.
+- The asset is not supported on that rail.
+
+## How to resolve
+
+Check the address against the `requires_memo` and format fields for that rail in `GET /rails`. Correct the destination and create a new intent.
+
+## Example response
+
+```json
+{
+  "error": {
+    "code": "invalid_destination",
+    "message": "...",
+    "type": "...",
+    "retryable": false,
+    "docs_url": "https://docs.useroutr.com/errors/invalid_destination",
+    "request_id": "req_..."
+  }
+}
+```

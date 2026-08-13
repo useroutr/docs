@@ -1,0 +1,41 @@
+---
+title: "overpaid"
+description: "More arrived than the intent required."
+---
+
+<CardGroup cols={2}>
+  <Card title="Retryable" icon="rotate">
+    No
+  </Card>
+  <Card title="Typical status" icon="hashtag">
+    200
+  </Card>
+</CardGroup>
+
+## What it means
+
+The intent settles for the required amount and the excess is refunded automatically to the payer.
+
+## Common causes
+
+- The payer rounded up.
+- A duplicate payment arrived against the same intent.
+
+## How to resolve
+
+No action required. Expect a `funding_intent.settled` event followed by a refund for the excess.
+
+## Example response
+
+```json
+{
+  "error": {
+    "code": "overpaid",
+    "message": "...",
+    "type": "...",
+    "retryable": false,
+    "docs_url": "https://docs.useroutr.com/errors/overpaid",
+    "request_id": "req_..."
+  }
+}
+```

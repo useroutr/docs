@@ -1,0 +1,42 @@
+---
+title: "rail_unavailable"
+description: "The requested rail is not currently accepting traffic in this direction."
+---
+
+<CardGroup cols={2}>
+  <Card title="Retryable" icon="rotate">
+    Yes
+  </Card>
+  <Card title="Typical status" icon="hashtag">
+    503
+  </Card>
+</CardGroup>
+
+## What it means
+
+Rails declare which directions they support, and some support only one. A rail can also be taken out of service temporarily for an upstream incident.
+
+## Common causes
+
+- The rail is deposit only and was requested as a destination, or the reverse.
+- The rail is paused for an upstream incident.
+- The rail is not enabled for your application.
+
+## How to resolve
+
+Check `GET /rails` for the current `directions` array on that rail. If the rail should be enabled for your application and is not, contact support.
+
+## Example response
+
+```json
+{
+  "error": {
+    "code": "rail_unavailable",
+    "message": "...",
+    "type": "...",
+    "retryable": true,
+    "docs_url": "https://docs.useroutr.com/errors/rail_unavailable",
+    "request_id": "req_..."
+  }
+}
+```

@@ -1,0 +1,50 @@
+---
+title: "Authentication"
+description: "Three credential types, each with one job."
+---
+
+| Credential | Format | Used by | Can do |
+| --- | --- | --- | --- |
+| Secret key | `sk_live_...`, `sk_test_...` | Your server | Everything |
+| Publishable key | `pk_live_...`, `pk_test_...` | Browser | Read the registry, read a public intent view |
+| Checkout session | JWT, short TTL | Browser | Act on **one** funding intent |
+
+```bash
+curl https://api.useroutr.com/v1/funding_intents \
+  -H "Authorization: Bearer sk_live_..."
+```
+
+<Warning>
+  Secret keys are server only. If a secret key reaches a browser bundle, rotate it immediately from the dashboard.
+</Warning>
+
+## Live and test are hard separated
+
+A live key cannot touch a test rail and a test key cannot touch a live rail. This is enforced server side rather than left as advice, so a misconfigured environment fails loudly instead of moving real money.
+
+## Checkout sessions
+
+The browser must never hold a secret key, and must never be able to change where money goes. A checkout session is scoped to **one funding intent that already exists**:
+
+```ts
+// your server
+app.post("/useroutr/session", async (req, res) => {
+  const session = await useroutr.checkoutSessions.create({
+    funding_intent_id: req.body.intentId,
+  });
+  res.json(session);
+});
+```
+
+Because the intent exists before the session does, a leaked session token cannot be replayed to create new intents against your destination. It can only complete the one it was issued for.
+
+## Wallet app handoff
+
+Mobile flows often jump from a browser into a wallet app and back. Exchanging a short-lived handoff token keeps the long-lived session token out of deep links and app-switch logs:
+
+```
+POST /checkout_sessions/{id}/handoff   -> { handoff_token }   (~60s TTL, single use)
+POST /checkout_sessions/resume         { handoff_token } -> { session_token }
+```
+
+The SDK does this for you. You only need it if you are building your own checkout.

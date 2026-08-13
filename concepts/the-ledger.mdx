@@ -1,0 +1,67 @@
+---
+title: "The ledger"
+description: "Why a funding intent is settled only when its credit exists, and what that guarantees you."
+---
+
+Most payment APIs finish when money reaches an address. Useroutr finishes when your application has been credited, because that is the event your product actually cares about.
+
+## The guarantee
+
+**A funding intent reaches `settled` only when balanced double-entry records exist for it.** A transaction hash is evidence that value moved. It is not evidence that your user should be credited.
+
+This gives you three things that are otherwise hard to build:
+
+<CardGroup cols={3}>
+  <Card title="Exactly once" icon="check">
+    Postings are keyed by intent and kind with a uniqueness constraint. A replayed webhook or a retried worker cannot double credit.
+  </Card>
+  <Card title="Reversible" icon="rotate-left">
+    Corrections are compensating entries, never deletions. History is append only.
+  </Card>
+  <Card title="Reconcilable" icon="scale-balanced">
+    Balances are derived from entries, never stored as the authority. A continuous reconciler compares them and alerts on any divergence.
+  </Card>
+</CardGroup>
+
+## Balances as a destination
+
+Settling to `rail: "ledger"` credits an account we hold on your behalf rather than sending to a wallet:
+
+```json
+{
+  "rail": "ledger",
+  "asset": "credit:acme:usd",
+  "target": { "kind": "ledger_account", "account_id": "la_..." }
+}
+```
+
+Useful when the user's value lives inside your product: a game balance, API credits, a trading account, a marketplace wallet. You avoid running your own ledger, and the balance is reconcilable against real settled funds rather than against your own bookkeeping.
+
+## What we hold, and where
+
+We are non-custodial where the rail allows it and custodial in transit where it does not, and we say which per rail rather than glossing it.
+
+| Rail class | Custody |
+| --- | --- |
+| Stellar, EVM | Non-custodial. Value sits in a per-intent escrow with contract-enforced timeout refund |
+| Fiat in and out | Custodial in transit, through a regulated provider |
+| Balance destinations | Custodial by definition. We hold a liability to you, recorded on the ledger |
+
+<Note>
+  Every unit we hold has a named liability account. There is no off-ledger operational wallet anywhere in the system.
+</Note>
+
+## Receipts
+
+Every deduction is named, attributed, and ordered:
+
+```
+initial_amount        what the user sent
+  - network_cost      gas, bank charges
+  - provider_cost     what the provider charged
+  - platform_fee      ours
+  - application_fee   yours, if configured
+  = final_amount      what the destination received
+```
+
+Flat fees apply before percentage fees. Receipts are generated from ledger entries rather than computed alongside them, so a receipt cannot disagree with the books.

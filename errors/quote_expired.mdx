@@ -1,0 +1,41 @@
+---
+title: "quote_expired"
+description: "The quote being accepted is no longer valid."
+---
+
+<CardGroup cols={2}>
+  <Card title="Retryable" icon="rotate">
+    No
+  </Card>
+  <Card title="Typical status" icon="hashtag">
+    409
+  </Card>
+</CardGroup>
+
+## What it means
+
+Quotes are immutable and short lived, typically 60 seconds. Accepting an expired quote would mean settling at a price we no longer believe.
+
+## Common causes
+
+- Too long elapsed between `GET /options` and `POST /accept`.
+- The checkout was left open.
+
+## How to resolve
+
+Call `GET /funding_intents/{id}/options` again and accept a fresh quote. The intent itself is unaffected and does not need recreating.
+
+## Example response
+
+```json
+{
+  "error": {
+    "code": "quote_expired",
+    "message": "...",
+    "type": "...",
+    "retryable": false,
+    "docs_url": "https://docs.useroutr.com/errors/quote_expired",
+    "request_id": "req_..."
+  }
+}
+```

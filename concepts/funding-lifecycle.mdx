@@ -1,0 +1,78 @@
+---
+title: "Funding lifecycle"
+description: "The states a funding intent moves through, and which ones need you to act."
+---
+
+Every funding intent is in exactly one state. States fall into three groups, and the grouping is the useful part: it tells you whether to wait, to stop, or to do something.
+
+## The states
+
+<Tabs>
+  <Tab title="Active">
+    These progress on their own. Wait for a webhook.
+
+    | State | Meaning |
+    | --- | --- |
+    | `created` | Intent exists, no quote yet |
+    | `quoted` | At least one unexpired quote |
+    | `awaiting_payment` | Quote accepted, route pinned, instructions issued |
+    | `payment_received` | Funds observed and confirmed. **The user is done** |
+    | `in_review` | Held for compliance. Funds are safe, nothing is moving |
+    | `settling` | Legs executing |
+    | `failed` | Execution failed, a refund will be attempted |
+    | `refund_pending` | Refund in flight |
+  </Tab>
+
+  <Tab title="Terminal">
+    These never change again.
+
+    | State | Meaning |
+    | --- | --- |
+    | `settled` | Delivered **and** the ledger credit exists |
+    | `refunded` | Funds returned to the payer |
+    | `expired` | Never funded before expiry |
+    | `canceled` | Canceled before payment |
+  </Tab>
+
+  <Tab title="Needs attention">
+    These will not resolve without intervention. This is your operator queue.
+
+    | State | Meaning |
+    | --- | --- |
+    | `partially_settled` | Some value credited, a remainder is not |
+    | `undeliverable` | Destination rejected. No refund attempted yet |
+    | `refund_failed` | Refund attempted and failed. Needs a human |
+  </Tab>
+</Tabs>
+
+## Two distinctions worth internalising
+
+**`payment_received` is not `settling`.** The user's obligation ends and our work begins at different moments. Release the user from your checkout at `payment_received`; do not hold them until `settled`.
+
+**`settled` means the ledger credit exists.** Not that a transaction hash appeared. If you are deciding whether to grant a user something, `settled` is the only state that answers the question.
+
+## Underpayment
+
+Crypto payers underpay routinely, most often because a sending exchange deducts its fee from the amount. You configure what happens:
+
+| Policy | Behaviour |
+| --- | --- |
+| `credit_partial` | Credit what arrived, move to `partially_settled`, stay open for a top up |
+| `hold` | Credit nothing, wait for the remainder until expiry |
+| `refund` | Return what arrived |
+
+<Note>
+  Overpayment needs no policy. The intent settles for the required amount and the excess is refunded automatically.
+</Note>
+
+## Refunds
+
+Refunds are a first-class operation, not a support process.
+
+Automatic on expiry with funds received, on execution failure, on overpayment, and on compliance rejection. You can also initiate one with `POST /funding_intents/{id}/refunds` from `payment_received`, `partially_settled`, `undeliverable`, or `failed`.
+
+<Warning>
+  On rails where the payer is not reliably refundable, an exchange withdrawal being the common case, our checkout collects a refund endpoint before accepting payment. If you build your own checkout, collect one too, or you will accumulate intents in `refund_failed`.
+</Warning>
+
+Refunds are always compensating ledger entries. Nothing is ever reversed in place, so the audit trail stays intact.

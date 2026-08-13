@@ -1,0 +1,124 @@
+{
+  "$schema": "https://mintlify.com/docs.json",
+  "theme": "mint",
+  "name": "Useroutr",
+  "description": "Universal application funding. Users bring whatever they have, your application receives exactly what it needs, credited exactly once.",
+  "colors": {
+    "primary": "#F4671F",
+    "light": "#FF7433",
+    "dark": "#F4671F"
+  },
+  "favicon": "/favicon.svg",
+  "logo": {
+    "light": "/logo/light.png",
+    "dark": "/logo/dark.png",
+    "href": "https://useroutr.com"
+  },
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get started",
+            "pages": ["index", "quickstart"]
+          },
+          {
+            "group": "Concepts",
+            "pages": [
+              "concepts/core-model",
+              "concepts/funding-lifecycle",
+              "concepts/the-ledger",
+              "concepts/settlement"
+            ]
+          },
+          {
+            "group": "Guides",
+            "pages": [
+              "guides/authentication",
+              "guides/idempotency",
+              "guides/webhooks",
+              "guides/handling-errors"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API reference",
+        "groups": [
+          {
+            "group": "Overview",
+            "pages": ["api-reference/introduction"]
+          },
+          {
+            "group": "Endpoints",
+            "openapi": "api-reference/openapi.yaml"
+          }
+        ]
+      },
+      {
+        "tab": "Errors",
+        "groups": [
+          {
+            "group": "Overview",
+            "pages": ["errors/index"]
+          },
+          {
+            "group": "Amount",
+            "pages": [
+              "errors/amount_below_minimum",
+              "errors/amount_above_maximum",
+              "errors/underpaid",
+              "errors/overpaid"
+            ]
+          },
+          {
+            "group": "Routing and liquidity",
+            "pages": [
+              "errors/insufficient_liquidity",
+              "errors/rail_unavailable",
+              "errors/quote_expired",
+              "errors/slippage_exceeded",
+              "errors/provider_error"
+            ]
+          },
+          {
+            "group": "Destination",
+            "pages": [
+              "errors/invalid_destination",
+              "errors/destination_not_ready",
+              "errors/payout_undeliverable",
+              "errors/refund_undeliverable"
+            ]
+          },
+          {
+            "group": "Compliance",
+            "pages": ["errors/compliance_hold", "errors/compliance_rejected"]
+          },
+          {
+            "group": "Service",
+            "pages": ["errors/network_error", "errors/service_unavailable"]
+          }
+        ]
+      }
+    ]
+  },
+  "navbar": {
+    "links": [
+      {
+        "label": "Support",
+        "href": "mailto:support@useroutr.com"
+      }
+    ],
+    "primary": {
+      "type": "button",
+      "label": "Dashboard",
+      "href": "https://dashboard.useroutr.com"
+    }
+  },
+  "footer": {
+    "socials": {
+      "github": "https://github.com/useroutr"
+    }
+  }
+}

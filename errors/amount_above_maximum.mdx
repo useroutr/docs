@@ -1,0 +1,42 @@
+---
+title: "amount_above_maximum"
+description: "The amount exceeds the maximum the chosen route can carry."
+---
+
+<CardGroup cols={2}>
+  <Card title="Retryable" icon="rotate">
+    No
+  </Card>
+  <Card title="Typical status" icon="hashtag">
+    400
+  </Card>
+</CardGroup>
+
+## What it means
+
+Providers declare per transaction and per day ceilings. Compliance thresholds can lower the effective ceiling for a given customer.
+
+## Common causes
+
+- The amount is above a provider's per transaction limit.
+- The customer has hit a rolling daily limit on this corridor.
+- A compliance requirement would need to be satisfied before a higher ceiling applies.
+
+## How to resolve
+
+Split the funding into smaller intents, choose another rail, or satisfy the outstanding requirements from `GET /customers/{id}/requirements` to raise the ceiling.
+
+## Example response
+
+```json
+{
+  "error": {
+    "code": "amount_above_maximum",
+    "message": "...",
+    "type": "...",
+    "retryable": false,
+    "docs_url": "https://docs.useroutr.com/errors/amount_above_maximum",
+    "request_id": "req_..."
+  }
+}
+```

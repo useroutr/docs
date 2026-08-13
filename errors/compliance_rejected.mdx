@@ -1,0 +1,46 @@
+---
+title: "compliance_rejected"
+description: "The intent cannot proceed for compliance reasons."
+---
+
+<CardGroup cols={2}>
+  <Card title="Retryable" icon="rotate">
+    No
+  </Card>
+  <Card title="Typical status" icon="hashtag">
+    403
+  </Card>
+</CardGroup>
+
+## What it means
+
+Review completed and the transaction cannot be settled. Any funds already received are refunded automatically.
+
+## Common causes
+
+- Screening returned a blocking result.
+- The corridor is unavailable for this customer.
+- A required verification was rejected.
+
+## How to resolve
+
+No retry will succeed. If the customer believes this is an error, they should contact support with the `request_id`.
+
+<Note>
+  We do not explain the specific reason for a rejection in the API response, and neither should your application.
+</Note>
+
+## Example response
+
+```json
+{
+  "error": {
+    "code": "compliance_rejected",
+    "message": "...",
+    "type": "...",
+    "retryable": false,
+    "docs_url": "https://docs.useroutr.com/errors/compliance_rejected",
+    "request_id": "req_..."
+  }
+}
+```

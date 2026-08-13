@@ -1,0 +1,46 @@
+---
+title: "compliance_hold"
+description: "The intent is held pending compliance review."
+---
+
+<CardGroup cols={2}>
+  <Card title="Retryable" icon="rotate">
+    No
+  </Card>
+  <Card title="Typical status" icon="hashtag">
+    202
+  </Card>
+</CardGroup>
+
+## What it means
+
+Not a failure. Funds are safe and nothing is moving. The intent is in `in_review` and will resume or move to refund once review completes.
+
+## Common causes
+
+- An amount crossed a threshold requiring review.
+- A screening check needs manual attention.
+- A required field is pending verification.
+
+## How to resolve
+
+Check `GET /customers/{id}/requirements` for anything outstanding. If everything is satisfied, no action is needed: review completes on our side and the intent continues automatically.
+
+<Note>
+  Do not create a replacement intent. The held funds belong to the original one.
+</Note>
+
+## Example response
+
+```json
+{
+  "error": {
+    "code": "compliance_hold",
+    "message": "...",
+    "type": "...",
+    "retryable": false,
+    "docs_url": "https://docs.useroutr.com/errors/compliance_hold",
+    "request_id": "req_..."
+  }
+}
+```

@@ -1,0 +1,98 @@
+---
+title: "Core model"
+description: "Rails, endpoints, and the two funding primitives. The vocabulary every other page assumes."
+---
+
+Four ideas carry the whole API. Learning them takes about five minutes and makes everything else predictable.
+
+## A rail is a rail
+
+A rail is how value moves. A blockchain and a bank network are the same kind of object: both have an address format, a settlement time, a fee model, and a set of failure modes.
+
+```json
+{
+  "id": "stellar",
+  "kind": "chain",
+  "directions": ["in", "out"],
+  "requires_memo": true,
+  "finality": { "typical_seconds": 5, "p95_seconds": 8 },
+  "assets": ["crypto:USDC", "crypto:XLM"]
+}
+```
+
+`GET /rails` returns the live set. Rail identifiers are open strings, not a fixed enum, and new rails appear without an SDK release. Any `switch` you write over a rail needs a `default`.
+
+<Note>
+  Some rails support only one direction. Check `directions` before using a rail as a destination.
+</Note>
+
+## An endpoint describes both ends
+
+One shape covers a blockchain address, a bank account, a card, and an internal balance. Sources and destinations use the same type: direction is a property of the transfer, not of the type.
+
+<CodeGroup>
+```json Crypto
+{
+  "rail": "stellar",
+  "asset": "crypto:USDC",
+  "target": { "kind": "chain_address", "address": "G...", "memo": "12345" }
+}
+```
+
+```json Bank
+{
+  "rail": "ach",
+  "asset": "fiat:USD",
+  "target": { "kind": "bank_account", "external_account_id": "ext_..." }
+}
+```
+
+```json Balance
+{
+  "rail": "ledger",
+  "asset": "credit:acme:usd",
+  "target": { "kind": "ledger_account", "account_id": "la_..." }
+}
+```
+</CodeGroup>
+
+The practical consequence: once you can accept money, you can send it. Paying out is the same call with the endpoints the other way round.
+
+## Assets are namespaced
+
+`crypto:USDC`, `fiat:NGN`, `credit:acme:ai_tokens`. An asset is a symbol at the model layer, resolved to a contract address, issuer, or mint by the registry per rail. That is what lets one intent quote across eight chains without eight asset identifiers.
+
+<Warning>
+  The same symbol has a different scale on different rails. USDC is 6 decimals on EVM and 7 on Stellar. Never hardcode a scale: take it from the registry.
+</Warning>
+
+Amounts are always decimal strings, always paired with an asset. Never a float, never a bare number.
+
+## Two funding primitives
+
+<CardGroup cols={2}>
+  <Card title="Funding intent" icon="receipt">
+    One funding event. Has an amount or is open, expires, and terminates.
+    Use for checkout and anything invoice shaped.
+  </Card>
+  <Card title="Funding address" icon="inbox">
+    A persistent, reusable receive endpoint bound to a destination.
+    Any deposit creates an intent automatically. Use for user deposit addresses.
+  </Card>
+</CardGroup>
+
+They share one settlement path, so everything downstream behaves identically.
+
+## Legs and routes
+
+A route is an ordered list of legs. Each leg has a `kind` describing what it does, separate from the provider performing it.
+
+| Kind | What it does |
+| --- | --- |
+| `transfer` | Move on one rail, no conversion |
+| `swap` | Convert asset, same rail |
+| `bridge` | Move between chain rails |
+| `ramp` | Cross the fiat and crypto boundary, either direction |
+| `credit` | Write the ledger credit. Always the final leg when funding a balance |
+
+You never choose a provider. You can express preference through `policy`, and if we cannot satisfy it we return an error rather than silently ignoring it.

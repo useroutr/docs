@@ -1,0 +1,46 @@
+---
+title: "destination_not_ready"
+description: "The destination is valid but cannot currently receive the asset."
+---
+
+<CardGroup cols={2}>
+  <Card title="Retryable" icon="rotate">
+    Yes
+  </Card>
+  <Card title="Typical status" icon="hashtag">
+    409
+  </Card>
+</CardGroup>
+
+## What it means
+
+This is a deliberately chain neutral code. It covers a missing Stellar trustline, an unactivated account, and a bank account that has not completed verification, without leaking chain specific concepts into your integration.
+
+## Common causes
+
+- A Stellar destination has no trustline for the asset.
+- The destination account does not exist yet or is below its reserve.
+- A bank account is pending verification.
+
+## How to resolve
+
+The recipient must prepare the destination, then the intent can be retried. For crypto destinations that cannot be prepared in advance, consider settling to a ledger account instead and paying out later.
+
+<Note>
+  This code never means the destination is wrong. A wrong destination is rejected as `invalid_destination` at creation time.
+</Note>
+
+## Example response
+
+```json
+{
+  "error": {
+    "code": "destination_not_ready",
+    "message": "...",
+    "type": "...",
+    "retryable": true,
+    "docs_url": "https://docs.useroutr.com/errors/destination_not_ready",
+    "request_id": "req_..."
+  }
+}
+```

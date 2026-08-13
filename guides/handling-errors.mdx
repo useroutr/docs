@@ -1,0 +1,61 @@
+---
+title: "Handling errors"
+description: "One error shape, a stable code, and a page for every code."
+---
+
+Every error has the same shape:
+
+```json
+{
+  "error": {
+    "code": "insufficient_liquidity",
+    "message": "No provider can currently fill 50000.00 USDC to Stellar.",
+    "type": "provider_error",
+    "param": null,
+    "retryable": true,
+    "retry_after_seconds": 30,
+    "docs_url": "https://docs.useroutr.com/errors/insufficient_liquidity",
+    "request_id": "req_..."
+  }
+}
+```
+
+Branch on `code`, which is stable and machine readable. `message` is safe to display to an end user and never contains a provider name or an internal identifier.
+
+## Types
+
+| `type` | Meaning |
+| --- | --- |
+| `validation_error` | The request is malformed. Fix and resend |
+| `authentication_error` | Key missing, invalid, or revoked |
+| `permission_error` | Key valid, action not allowed |
+| `not_found` | No such resource under this application |
+| `conflict` | State does not permit this, for example an expired quote |
+| `rate_limit` | Back off, honour `retry_after_seconds` |
+| `provider_error` | Upstream failure, usually retryable |
+| `compliance_error` | Held or rejected for compliance reasons |
+| `internal_error` | Ours. Retry, then contact support with the `request_id` |
+
+## Retrying safely
+
+```ts
+try {
+  await useroutr.fundingIntents.create(params, { idempotencyKey: key });
+} catch (e) {
+  if (e.error.retryable) {
+    await sleep((e.error.retry_after_seconds ?? 5) * 1000);
+    // same key: a retry can never double charge
+    await useroutr.fundingIntents.create(params, { idempotencyKey: key });
+  }
+}
+```
+
+Always reuse the idempotency key on a retry. That is what makes retrying safe.
+
+<Note>
+  New error codes are added in minor versions. Every `switch` over `code` needs a `default`, and unknown codes should be treated as non-retryable.
+</Note>
+
+## Every code has a page
+
+`docs_url` in the error body points at a page explaining what happened, why, and how to resolve it. Start at the [error reference](/errors).
