@@ -1,6 +1,6 @@
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/useroutr/.github/main/profile/assets/mark-dark.png">
-  <img src="https://raw.githubusercontent.com/useroutr/.github/main/profile/assets/mark-light.png" alt="Useroutr" width="48">
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/useroutr/.github/main/profile/assets/mark-on-dark.png">
+  <img src="https://raw.githubusercontent.com/useroutr/.github/main/profile/assets/mark-on-light.png" alt="Useroutr" width="48">
 </picture>
 
 # docs
