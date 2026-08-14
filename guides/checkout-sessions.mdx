@@ -70,18 +70,37 @@ So there are two tokens.
 
 ```
 POST /v1/checkout_sessions/{id}/handoff   → { handoff_token, expires_at }
-POST /v1/checkout_sessions/resume         { handoff_token } → { session_token }
+POST /v1/checkout_sessions/resume         { handoff_token, code_verifier } → { session_token }
 ```
 
 The handoff token is short lived, **single use**, and the only thing that
 travels. A handoff seen twice is a handoff somebody else also saw, so the second
 attempt to spend one fails.
 
+Because it travels through a URL, assume it leaks. So it is bound to a secret
+your browser keeps and never sends: a `code_verifier`. You send its hash when
+minting, and the verifier itself when redeeming. This is required, not optional,
+because a binding an attacker can strip is not a binding.
+
 ```ts
 // Before leaving for the wallet app.
+const verifier = crypto.randomUUID() + crypto.randomUUID();
+sessionStorage.setItem("useroutr_verifier", verifier);
+
+const challenge = btoa(
+  String.fromCharCode(...new Uint8Array(
+    await crypto.subtle.digest("SHA-256", new TextEncoder().encode(verifier)),
+  )),
+).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+
 const { handoff_token } = await fetch(`/v1/checkout_sessions/${id}/handoff`, {
   method: "POST",
-  headers: { authorization: `Bearer ${sessionToken}`, "idempotency-key": crypto.randomUUID() },
+  headers: {
+    authorization: `Bearer ${sessionToken}`,
+    "content-type": "application/json",
+    "idempotency-key": crypto.randomUUID(),
+  },
+  body: JSON.stringify({ code_challenge: challenge }),
 }).then((r) => r.json());
 
 window.location.href = `https://wallet.example/pay?return=${encodeURIComponent(
@@ -95,12 +114,18 @@ On the way back, exchange it for a fresh session:
 const { session_token } = await fetch("/v1/checkout_sessions/resume", {
   method: "POST",
   headers: { "content-type": "application/json", "idempotency-key": crypto.randomUUID() },
-  body: JSON.stringify({ handoff_token: new URL(location.href).searchParams.get("h") }),
+  body: JSON.stringify({
+    handoff_token: new URL(location.href).searchParams.get("h"),
+    code_verifier: sessionStorage.getItem("useroutr_verifier"),
+  }),
 }).then((r) => r.json());
 ```
 
-`resume` takes no other credential. The handoff token is the credential, which
-is why it is single use and expires in about a minute.
+`resume` takes no API key. The handoff token and the verifier together are the
+credential, which is why the token is single use, expires in about a minute, and
+allows only three attempts before it is spent. A token lifted from a URL, a
+browser history, or an app-switch log is useless without the verifier, which
+never left the browser that asked for it.
 
 ## Storage
 
