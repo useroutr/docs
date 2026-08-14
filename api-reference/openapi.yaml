@@ -50,6 +50,30 @@ paths:
         "400": { $ref: "#/components/responses/Error" }
         "409": { $ref: "#/components/responses/Error" }
 
+    get:
+      tags: [Funding intents]
+      summary: List funding intents
+      operationId: listFundingIntents
+      parameters:
+        - name: status
+          in: query
+          schema: { $ref: "#/components/schemas/FundingIntentStatus" }
+        - name: customer_id
+          in: query
+          schema: { type: string }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 25 }
+        - name: starting_after
+          in: query
+          schema: { type: string }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/FundingIntentList" }
+
   /funding_intents/{id}:
     get:
       tags: [Funding intents]
@@ -67,29 +91,33 @@ paths:
 
   /funding_intents/{id}/options:
     get:
-      tags: [Funding intents]
-      summary: List every way this user could fund the intent
-      description: |
-        Returns quotes across every eligible source rail, and the reasons the
-        routes that were not offered were excluded.
       operationId: listFundingOptions
+      summary: Price every way this funding intent could be paid
+      tags: [Funding intents]
       parameters:
-        - $ref: "#/components/parameters/FundingIntentId"
+        - { name: id, in: path, required: true, schema: { type: string } }
       responses:
         "200":
-          description: OK
+          description: Quotes, best first for the intent's optimize policy.
           content:
             application/json:
-              schema: { $ref: "#/components/schemas/FundingOptions" }
+              schema:
+                type: object
+                required: [options]
+                properties:
+                  options:
+                    type: array
+                    items: { $ref: "#/components/schemas/Quote" }
+        default: { $ref: "#/components/responses/Error" }
 
   /funding_intents/{id}/accept:
     post:
-      tags: [Funding intents]
-      summary: Accept a quote and pin the route
       operationId: acceptQuote
+      summary: Accept a quote, pinning its route
+      tags: [Funding intents]
       parameters:
-        - $ref: "#/components/parameters/FundingIntentId"
-        - $ref: "#/components/parameters/IdempotencyKey"
+        - { name: id, in: path, required: true, schema: { type: string } }
+        - { $ref: "#/components/parameters/IdempotencyKey" }
       requestBody:
         required: true
         content:
@@ -98,14 +126,90 @@ paths:
               type: object
               required: [quote_id]
               properties:
-                quote_id: { type: string, examples: ["qt_..."] }
+                quote_id: { type: string }
       responses:
         "200":
-          description: Route pinned, pay instructions issued
+          description: The intent, now awaiting payment, with pay instructions.
           content:
             application/json:
               schema: { $ref: "#/components/schemas/FundingIntent" }
-        "409": { $ref: "#/components/responses/Error" }
+        default: { $ref: "#/components/responses/Error" }
+
+  /checkout_sessions:
+    post:
+      operationId: createCheckoutSession
+      summary: Issue a browser credential for one funding intent
+      description: |
+        Scoped to a funding intent that already exists, so the session grants
+        the ability to complete it and nothing more. It cannot be replayed to
+        create another intent and cannot change where money goes.
+      tags: [Checkout]
+      parameters:
+        - { $ref: "#/components/parameters/IdempotencyKey" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [funding_intent_id]
+              properties:
+                funding_intent_id: { type: string }
+      responses:
+        "201":
+          description: The session token, returned once.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CheckoutSession" }
+        default: { $ref: "#/components/responses/Error" }
+
+  /checkout_sessions/{id}/handoff:
+    post:
+      operationId: createHandoff
+      summary: Mint a short-lived token for a wallet app round trip
+      description: |
+        The session token never travels through a deep link or a URL bar. This
+        one does, is single use, and expires in about a minute.
+      tags: [Checkout]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+        - { $ref: "#/components/parameters/IdempotencyKey" }
+      responses:
+        "201":
+          description: The handoff token.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [handoff_token, expires_at]
+                properties:
+                  handoff_token: { type: string }
+                  expires_at: { type: string, format: date-time }
+        default: { $ref: "#/components/responses/Error" }
+
+  /checkout_sessions/resume:
+    post:
+      operationId: resumeCheckoutSession
+      summary: Exchange a handoff token for a session token
+      tags: [Checkout]
+      parameters:
+        - { $ref: "#/components/parameters/IdempotencyKey" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [handoff_token]
+              properties:
+                handoff_token: { type: string }
+      responses:
+        "201":
+          description: A fresh session token.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CheckoutSession" }
+        default: { $ref: "#/components/responses/Error" }
 
   /rails:
     get:
@@ -195,6 +299,51 @@ components:
             kind: { const: ledger_account }
             account_id: { type: string }
 
+    CheckoutSession:
+      type: object
+      description: |
+        A browser credential for one funding intent. The token is shown once and
+        only its hash is stored.
+      required: [id, session_token, funding_intent_id, expires_at]
+      properties:
+        id: { type: string, examples: ["cst_..."] }
+        session_token: { type: string }
+        funding_intent_id: { type: string }
+        expires_at: { type: string, format: date-time }
+
+    Quote:
+      type: object
+      description: |
+        An immutable price. Accepting one pins its route; it is never recomputed
+        afterwards, and re-quoting produces a new quote rather than editing this.
+      required:
+        [id, source, pay_amount, receive_amount_min, estimated_duration_seconds, expires_at]
+      properties:
+        id: { type: string, examples: ["qt_..."] }
+        source:
+          type: object
+          required: [rail, asset]
+          properties:
+            rail: { type: string }
+            asset: { type: string }
+        pay_amount: { $ref: "#/components/schemas/Money" }
+        receive_amount_min: { $ref: "#/components/schemas/Money" }
+        fees: { type: array, items: { type: object, additionalProperties: true } }
+        estimated_duration_seconds: { type: integer }
+        expires_at: { type: string, format: date-time }
+
+    PayTo:
+      type: object
+      description: |
+        Where to send, for one rail. A memo is present only on rails that carry
+        one, and omitting it there loses the payment.
+      required: [rail, asset, address]
+      properties:
+        rail: { type: string, examples: ["stellar"] }
+        asset: { type: string, examples: ["crypto:USDC"] }
+        address: { type: string }
+        memo: { type: string }
+
     Endpoint:
       type: object
       description: |
@@ -266,6 +415,10 @@ components:
         status: { $ref: "#/components/schemas/FundingIntentStatus" }
         amount: { $ref: "#/components/schemas/Money" }
         destination: { $ref: "#/components/schemas/Endpoint" }
+        pay_to:
+          type: array
+          description: Where the payer should send. One entry per rail that can receive.
+          items: { $ref: "#/components/schemas/PayTo" }
         reference: { type: string }
         metadata: { type: object, additionalProperties: true }
         checkout_url: { type: string, format: uri }
@@ -273,35 +426,15 @@ components:
         created_at: { type: string, format: date-time }
         expires_at: { type: string, format: date-time }
 
-    FundingOption:
+    FundingIntentList:
       type: object
-      required: [quote_id, source, pay_amount, receive_amount_min, estimated_duration_seconds]
+      required: [data, has_more, next_cursor]
       properties:
-        quote_id: { type: string }
-        source: { $ref: "#/components/schemas/Endpoint" }
-        pay_amount: { $ref: "#/components/schemas/Money" }
-        receive_amount: { $ref: "#/components/schemas/Money" }
-        receive_amount_min: { $ref: "#/components/schemas/Money" }
-        estimated_duration_seconds: { type: integer }
-        expires_at: { type: string, format: date-time }
-
-    FundingOptions:
-      type: object
-      required: [options, excluded]
-      properties:
-        options:
+        data:
           type: array
-          items: { $ref: "#/components/schemas/FundingOption" }
-        excluded:
-          type: array
-          description: Why the routes we did not offer were excluded.
-          items:
-            type: object
-            required: [rail, reason]
-            properties:
-              rail: { type: string }
-              reason: { type: string }
-              detail: { type: object, additionalProperties: true }
+          items: { $ref: "#/components/schemas/FundingIntent" }
+        has_more: { type: boolean }
+        next_cursor: { type: [string, "null"] }
 
     Rail:
       type: object

@@ -1,0 +1,114 @@
+---
+title: "Checkout sessions"
+description: "A browser credential scoped to one funding intent, and the handoff that survives a trip through a wallet app."
+---
+
+The browser must never hold a secret key, and the browser must never be able to
+change where money goes. A checkout session is how both stay true.
+
+## What a session is
+
+A session is issued **server side**, against a funding intent that **already
+exists**. It grants the ability to complete that one intent and nothing else.
+
+```ts
+import { Useroutr } from "@useroutr/sdk";
+
+const useroutr = new Useroutr({ apiKey: process.env.USEROUTR_SECRET_KEY });
+
+// Your endpoint, called by your own frontend.
+export async function POST(request: Request) {
+  const { fundingIntentId } = await request.json();
+
+  const session = await fetch("https://api.useroutr.com/v1/checkout_sessions", {
+    method: "POST",
+    headers: {
+      authorization: `Bearer ${process.env.USEROUTR_SECRET_KEY}`,
+      "content-type": "application/json",
+      "idempotency-key": crypto.randomUUID(),
+    },
+    body: JSON.stringify({ funding_intent_id: fundingIntentId }),
+  }).then((r) => r.json());
+
+  return Response.json({ sessionToken: session.session_token });
+}
+```
+
+The browser then constructs a client with the session token instead of a key:
+
+```ts
+const useroutr = new Useroutr({ sessionToken });
+```
+
+One credential, one client. Passing both a key and a session token is an error,
+because which one authorised a call matters when one of them can move money.
+
+## What a session cannot do
+
+| | |
+| --- | --- |
+| Read the intent it was issued for | Yes |
+| Read a different intent | **No**, even in the same application |
+| Accept a quote for its own intent | Yes, that completes an intent |
+| Create a funding intent | **No** |
+| Change a destination | **No**, the intent already fixed it |
+
+The scoping is per intent, not per application. Scoping by application alone
+would let one customer's session read another customer's intent.
+
+Sessions expire, and expiry is part of the lookup rather than a check
+afterwards, so there is no path that finds a session and forgets to ask whether
+it is still good.
+
+## Handoff tokens
+
+The hardest problem in mobile checkout is the jump from browser to wallet app
+and back. The session token must not make that trip: a deep link, a URL bar, and
+an app-switch log are all places where things get written down and kept.
+
+So there are two tokens.
+
+```
+POST /v1/checkout_sessions/{id}/handoff   → { handoff_token, expires_at }
+POST /v1/checkout_sessions/resume         { handoff_token } → { session_token }
+```
+
+The handoff token is short lived, **single use**, and the only thing that
+travels. A handoff seen twice is a handoff somebody else also saw, so the second
+attempt to spend one fails.
+
+```ts
+// Before leaving for the wallet app.
+const { handoff_token } = await fetch(`/v1/checkout_sessions/${id}/handoff`, {
+  method: "POST",
+  headers: { authorization: `Bearer ${sessionToken}`, "idempotency-key": crypto.randomUUID() },
+}).then((r) => r.json());
+
+window.location.href = `https://wallet.example/pay?return=${encodeURIComponent(
+  `https://yourapp.com/checkout?h=${handoff_token}`,
+)}`;
+```
+
+On the way back, exchange it for a fresh session:
+
+```ts
+const { session_token } = await fetch("/v1/checkout_sessions/resume", {
+  method: "POST",
+  headers: { "content-type": "application/json", "idempotency-key": crypto.randomUUID() },
+  body: JSON.stringify({ handoff_token: new URL(location.href).searchParams.get("h") }),
+}).then((r) => r.json());
+```
+
+`resume` takes no other credential. The handoff token is the credential, which
+is why it is single use and expires in about a minute.
+
+## Storage
+
+Only hashes are stored, for both token kinds. A leaked table yields nothing
+usable, which is the same posture as API keys.
+
+<Note>
+A session token is not a bearer token you should persist. Hold it in memory for
+the life of the checkout, and use a handoff when you need to survive a
+navigation.
+</Note>

@@ -21,7 +21,10 @@
         "groups": [
           {
             "group": "Get started",
-            "pages": ["index", "quickstart"]
+            "pages": [
+              "index",
+              "quickstart"
+            ]
           },
           {
             "group": "Concepts",
@@ -36,6 +39,7 @@
             "group": "Guides",
             "pages": [
               "guides/authentication",
+              "guides/checkout-sessions",
               "guides/idempotency",
               "guides/webhooks",
               "guides/handling-errors"
@@ -48,7 +52,9 @@
         "groups": [
           {
             "group": "Overview",
-            "pages": ["api-reference/introduction"]
+            "pages": [
+              "api-reference/introduction"
+            ]
           },
           {
             "group": "Endpoints",
@@ -61,7 +67,9 @@
         "groups": [
           {
             "group": "Overview",
-            "pages": ["errors/index"]
+            "pages": [
+              "errors/index"
+            ]
           },
           {
             "group": "Amount",
@@ -93,11 +101,17 @@
           },
           {
             "group": "Compliance",
-            "pages": ["errors/compliance_hold", "errors/compliance_rejected"]
+            "pages": [
+              "errors/compliance_hold",
+              "errors/compliance_rejected"
+            ]
           },
           {
             "group": "Service",
-            "pages": ["errors/network_error", "errors/service_unavailable"]
+            "pages": [
+              "errors/network_error",
+              "errors/service_unavailable"
+            ]
           }
         ]
       }
