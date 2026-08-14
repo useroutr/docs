@@ -1,0 +1,72 @@
+---
+title: "Sandbox keys"
+description: "A test key without an account, so the quickstart runs before you have signed up for anything."
+---
+
+You do not need an account to try Useroutr. One request gets you a working test
+key, and the same code moves to live later without changing.
+
+```bash
+curl -X POST https://api.useroutr.com/v1/sandbox_keys \
+  -H "content-type: application/json" \
+  -H "idempotency-key: $(uuidgen)" \
+  -d '{ "name": "Ada Lovelace", "email": "ada@example.com" }'
+```
+
+```json
+{
+  "application_id": "app_...",
+  "secret_key": "sk_test_...",
+  "publishable_key": "pk_test_...",
+  "environment": "test"
+}
+```
+
+The key works immediately. Nothing to verify, nobody to email, no allowlist.
+
+<Note>
+Only hashes are stored, so these values are shown once and cannot be retrieved
+later. Ask again with the same email and you get a fresh key.
+</Note>
+
+## Why we ask for a name and an email
+
+Not for a mailing list. Two reasons, both practical:
+
+**An incident notice needs somewhere to go.** If a test rail breaks or a
+sandbox behaviour changes under you, the email is how you hear about it.
+
+**It tells a real attempt from a script.** Nothing here is verified, and we are
+not pretending otherwise. It is a speed bump, not a gate.
+
+## Asking twice
+
+Ask again with the same email and you get a new key **for the same
+application**. That matters more than it sounds: your funding intents, ledger
+entries, and webhook history stay where they are. Losing a key does not mean
+losing your work.
+
+Older keys keep working. Nothing revokes a credential something may still be
+running against. If you want one gone, revoke it explicitly.
+
+One email may collect ten keys a day. Past that you get a `429` with
+`retryable: true`, which is the API telling you to wait rather than to give up.
+
+## What a sandbox key can and cannot do
+
+| | |
+| --- | --- |
+| Create funding intents on test rails | Yes |
+| Quote, accept, and settle in test | Yes |
+| Receive webhooks | Yes |
+| Touch a live rail | **No** |
+
+The application is created in the test environment and stays there. A live key
+cannot touch a test rail and a test key cannot touch a live one, enforced
+server-side rather than documented as a warning.
+
+## Moving to live
+
+Nothing about your integration changes. Create an account, generate a live key,
+and swap the credential. The rails, the lifecycle, the webhook payloads, and the
+error codes are the same objects with real money behind them.

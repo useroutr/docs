@@ -38,6 +38,7 @@
           {
             "group": "Guides",
             "pages": [
+              "guides/sandbox",
               "guides/authentication",
               "guides/checkout-sessions",
               "guides/idempotency",

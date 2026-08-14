@@ -3,55 +3,124 @@ title: "Quickstart"
 description: "From zero to a settled test funding."
 ---
 
-<Warning>
-  **Not yet available.** The API is pre-launch. This page ships when the sandbox does, and is tested end to end in CI against a ten minute budget from the day it appears. Until then, [Core model](/concepts/core-model) is the best place to understand the shape of an integration.
-</Warning>
+<Note>
+  The headless flow below works today. The drop-in checkout component is still
+  being built, so step 4 is a payment you make yourself on a testnet rail rather
+  than one a widget collects for you.
+</Note>
 
-## What this will cover
+## 1. Get a key
 
-<Steps>
-  <Step title="Get a key">
-    Self-serve, no approval step. A public sandbox key will let you run the whole flow before creating an account at all.
-  </Step>
-  <Step title="Create a funding intent">
-    Server side, with an amount and a destination.
-  </Step>
-  <Step title="Open the checkout">
-    Embedded React component, or the hosted page.
-  </Step>
-  <Step title="Pay on a testnet rail">
-    Including the failure paths: undeliverable, refund failed, compliance hold. The sandbox reproduces all of them on demand, because those are the paths integrations get wrong.
-  </Step>
-  <Step title="Receive the webhook and see the ledger credit">
-    `funding_intent.settled`, with the credit recorded.
-  </Step>
-</Steps>
+No account, no approval step.
 
-## The shape, today
+```bash
+curl -X POST https://api.useroutr.com/v1/sandbox_keys \
+  -H "content-type: application/json" \
+  -H "idempotency-key: $(uuidgen)" \
+  -d '{ "name": "Ada Lovelace", "email": "ada@example.com" }'
+```
+
+Keep the `secret_key`. It is shown once. See [Sandbox keys](/guides/sandbox) for
+what it can reach and what it cannot.
+
+```bash
+export USEROUTR_SECRET_KEY=sk_test_...
+```
+
+## 2. Create a funding intent
+
+Server side, always. The browser can complete an intent, never define one.
 
 ```ts
 import { Useroutr } from "@useroutr/sdk";
+import { randomUUID } from "node:crypto";
 
 const useroutr = new Useroutr({ apiKey: process.env.USEROUTR_SECRET_KEY });
 
-const intent = await useroutr.fundingIntents.create({
-  amount: { amount: "100.00", asset: "fiat:USD" },
-  destination: {
-    rail: "stellar",
-    asset: "crypto:USDC",
-    target: { kind: "chain_address", address: "G..." },
+const intent = await useroutr.fundingIntents.create(
+  {
+    amount: { amount: "1.00", asset: "crypto:USDC" },
+    destination: {
+      rail: "stellar",
+      asset: "crypto:USDC",
+      target: { kind: "chain_address", address: "G..." },
+    },
+    reference: "order_8812",
   },
-  reference: "order_8812",
+  { idempotencyKey: randomUUID() },
+);
+```
+
+Every mutating call needs an idempotency key, and you choose it. A retry of your
+own logic should reach the same key: a fresh one creates a second intent, which
+is the thing idempotency exists to prevent.
+
+## 3. Price it, then accept
+
+```ts
+const options = await useroutr.fundingIntents.options(intent.id);
+// [{ id: "qt_...", source: { rail, asset }, pay_amount, receive_amount_min, ... }]
+
+const accepted = await useroutr.fundingIntents.accept(intent.id, options[0].id, {
+  idempotencyKey: randomUUID(),
+});
+
+console.log(accepted.pay_to);
+// [{ rail: "stellar", asset: "crypto:USDC", address: "G...", memo: "fi_..." }]
+```
+
+Accepting pins the route that was quoted. It is never recomputed: a price your
+user agreed to and a route worked out a moment later are not the same promise.
+
+<Warning>
+  On a rail that carries a memo, send it. A payment arriving without one cannot
+  be matched to an intent, and on most rails it cannot be recovered either.
+</Warning>
+
+## 4. Pay it
+
+Send the `pay_amount` to the `pay_to` address on a testnet rail, with the memo
+if there is one. On Stellar testnet, a friendbot-funded account and a USDC
+trustline is enough.
+
+## 5. Watch it settle
+
+```ts
+const events = new EventSource(
+  `https://api.useroutr.com/v1/events?funding_intent_id=${intent.id}`,
+);
+
+events.addEventListener("funding_intent.transitioned", (e) => {
+  console.log(JSON.parse(e.data).status);
+  // awaiting_payment -> payment_received -> settling -> settled
 });
 ```
 
-```tsx
-import { UseroutrCheckout } from "@useroutr/react";
+The server owns the state and the stream reports it. Do not rebuild the
+lifecycle in your own code: it drifts from the only copy that matters.
 
-<UseroutrCheckout
-  intentId={intent.id}
-  sessionUrl="/api/useroutr/session"
-  onSettled={(e) => console.log(e.settlement)}
-  onFailed={(e) => console.log(e.failure.code)}
-/>
-```
+Polling `GET /funding_intents/{id}` works if streaming is unavailable. Back off
+exponentially rather than at a fixed interval, or a degraded API becomes a
+degraded API with a thundering herd.
+
+## What you just proved
+
+A funding intent reached `settled`, which means a **double-entry ledger credit
+exists**. Not a transaction hash. A hash is evidence; the credit is completion.
+
+## Next
+
+<CardGroup cols={2}>
+  <Card title="Webhooks" href="/guides/webhooks">
+    Get the same lifecycle pushed to you, including every failure.
+  </Card>
+  <Card title="Checkout sessions" href="/guides/checkout-sessions">
+    A browser credential scoped to one intent.
+  </Card>
+  <Card title="Handling errors" href="/guides/handling-errors">
+    Every code, and whether retrying is worth anything.
+  </Card>
+  <Card title="Core model" href="/concepts/core-model">
+    Endpoints, rails, legs, and why funding is not a payment.
+  </Card>
+</CardGroup>

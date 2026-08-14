@@ -231,6 +231,67 @@ paths:
               schema: { $ref: "#/components/schemas/CheckoutSession" }
         default: { $ref: "#/components/responses/Error" }
 
+  /events:
+    get:
+      operationId: streamEvents
+      summary: Watch one funding intent as it moves
+      description: |
+        Server-sent events. Each message is a lifecycle transition, and the
+        current state is sent first so a late subscriber is never behind. The
+        stream closes once the intent reaches a terminal state.
+
+        Poll `GET /funding_intents/{id}` only if streaming is unavailable, and
+        back off exponentially rather than at a fixed interval.
+      tags: [Checkout]
+      parameters:
+        - name: funding_intent_id
+          in: query
+          required: true
+          schema: { type: string }
+        - name: Last-Event-ID
+          in: header
+          required: false
+          description: Resume after this transition rather than replaying from the start.
+          schema: { type: string }
+      responses:
+        "200":
+          description: An event stream.
+          content:
+            text/event-stream:
+              schema: { type: string }
+        default: { $ref: "#/components/responses/Error" }
+
+  /sandbox_keys:
+    post:
+      operationId: createSandboxKey
+      summary: Get a test key without an account
+      description: |
+        No signup, but not anonymous. The name and email are how an incident
+        notice reaches you, and asking again with the same email returns a key
+        for the same application, so work already done is not lost.
+
+        Test environment only.
+      tags: [Onboarding]
+      parameters:
+        - { $ref: "#/components/parameters/IdempotencyKey" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, email]
+              properties:
+                name: { type: string, minLength: 1, maxLength: 200 }
+                email: { type: string, maxLength: 320 }
+      responses:
+        "201":
+          description: The keys, shown once.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SandboxKey" }
+        default: { $ref: "#/components/responses/Error" }
+
   /rails:
     get:
       tags: [Registry]
@@ -318,6 +379,18 @@ components:
           properties:
             kind: { const: ledger_account }
             account_id: { type: string }
+
+    SandboxKey:
+      type: object
+      description: |
+        A test-environment key pair. Only hashes are stored, so these are shown
+        once and cannot be retrieved later.
+      required: [application_id, secret_key, publishable_key, environment]
+      properties:
+        application_id: { type: string, examples: ["app_..."] }
+        secret_key: { type: string, examples: ["sk_test_..."] }
+        publishable_key: { type: string, examples: ["pk_test_..."] }
+        environment: { type: string, enum: [test] }
 
     CheckoutSession:
       type: object
